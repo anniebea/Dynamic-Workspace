@@ -53,16 +53,17 @@ class Schedule:
 
     spaceNum: how many desks are available in the workspace
     dayNum: for how many days is the schedule calculated
+    shiftSchedule: best solution
+    evaluation: best solution's evaluation
     """
     spaceNum: int
     dayNum: int
-    shiftSchedule: list[dict[float, Worker]]
-    evaluation = float
+    shiftSchedule: list
+    evaluation: float
+    localOptimums: list
 
     def __init__(self, spaceNum, dayNum):
         self.spaceNum = spaceNum
         self.dayNum = dayNum
         self.shiftSchedule = []
-        self.evaluation = 0.0
-
-
+        self.evaluation = 0.00000000000000

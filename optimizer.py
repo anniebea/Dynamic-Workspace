@@ -133,11 +133,10 @@ def evaluate(schedule, scheduleObj, structures):
     vacation = evaluateVacations(schedule, scheduleObj.dayNum * scheduleObj.spaceNum, structures)
     structure = evaluateStructures(scheduleObj.dayNum * scheduleObj.spaceNum, structures)
 
-    return np.average([overtime, vacation, structure])
+    return 0.4 * overtime + 0.4 * vacation + 0.2 * structure
 
 
 def generateNeighborList(schedule, employeeList):
-    # print("Generating neighbors for", schedule.tolist())
     neighbors = []
     for i, day in enumerate(schedule):
         for j, shift in enumerate(day):
@@ -150,9 +149,6 @@ def generateNeighborList(schedule, employeeList):
                         neighbor = np.copy(schedule)
                         neighbor[i][j][k] = worker
                         neighbors.append(neighbor)
-    # print(len(neighbors), "neighbors for schedule", schedule.tolist(), "generated")
-    # for i, neighbor in enumerate(neighbors):
-    #     print(i+1, ":", neighbor)
     return neighbors
 
 
@@ -196,8 +192,13 @@ def solve(structureObj, scheduleObj):
         for worker in struct.workers:
             employeeIDs.append(worker.work_id)
 
-    # create list of previous bests to avoid cycling
-    prevBests = [current_schedule]
+    # # create masterlist of best solutions
+    # prevBests = []
+    # prevBests.append(scheduleObj.shiftSchedule)
+    #
+    # # create list to keep track of generation tree
+    # prevRoots = []
+    # prevRoots.append(generation_root)
 
     # -----------------------------------------------------------------------------------------------------------------
     # ---------------------------------------------INITIALIZATION COMPLETE---------------------------------------------
@@ -208,42 +209,52 @@ def solve(structureObj, scheduleObj):
 
     iterationCounter = 0
 
-    while len(neighborhood) != 0:  # essentially infinite, really making the program psh for a solution.
+    while True:  # infinite without interuption
         # Only works because business logic for the task dictates a perfect solution must exist
         iterationCounter += 1
+        if iterationCounter > max(100, scheduleObj.dayNum * scheduleObj.spaceNum * (len(employeeIDs)+1)*2):
+            # ārkārtas situācija, lai programma neciklētos bezgalīgi
+            # problēmas avots: ieciklējas ar vienu generation_root, jo netiek klāt pie jauna
+            # Godīgi? ieciklējas lokālajos optimumos un nespēju izkulties pat ar visu izmaksu rindu
+            break
+        # Testa dati, lai pārbaudītu ciklēšanos
+        # print("--")
         # print("Iteration", iterationCounter, "Neighborhood:", len(neighborhood))
         # print("Best:", scheduleObj.shiftSchedule.tolist(), "eval:", scheduleObj.evaluation)
         # print("Root:", generation_root.tolist())
+        # print("--")
 
         current_eval = 0
         current_schedule = []
         # choose best in neighborhood
         for neighbor in neighborhood:
             newEval = evaluate(neighbor, scheduleObj, structureObj)
-            if newEval > current_eval:  # find best not in prev
-                current_schedule = neighbor
+            if newEval == 1:  # found a perfect solution in neighborhood
+                print("Schedule: ", neighbor.tolist(),
+                      f"\nSolution evaluation: {newEval * 100}%")
+                # end timer
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print("Perfect solve found in", iterationCounter, "iterations and time", elapsed_time)
+                return current_schedule
+            if newEval > current_eval:  # find best in neighborhood
+                current_schedule = np.copy(neighbor)
                 current_eval = newEval
-
-        if current_eval == 0:  # all of the neighbors were in prevBests
-            generation_root = prevBests[-1]  # take the previous best and use it as new root
-            print("revert to prevRoot")
-            continue
-        else:
-            prevBests.append(current_schedule.tolist())
-        # print("generated:", current_schedule.tolist())
 
         # evaluate solution, if better than best -> replace as best solution
         if scheduleObj.evaluation < current_eval:
-            scheduleObj.shiftSchedule = current_schedule
+            scheduleObj.shiftSchedule = np.copy(current_schedule)
             scheduleObj.evaluation = current_eval
             # print("new best", current_schedule.tolist())
 
         # if less expensive than root or first-in-line, replace as new generation root
         # print(current_eval, root_eval)
         if current_eval > root_eval or current_eval > expenses.get():
-            generation_root = current_schedule
+            generation_root = np.copy(current_schedule)
             root_eval = current_eval
-            # print("new root", current_schedule.tolist())
+            # prevRoots.append(np.copy(generation_root))
+            # print("new root", generation_root.tolist())
+            # print("rootLen:", len(prevRoots))
 
         # put evaluation in expense line
         if expenses.qsize() == queueLen:
@@ -252,7 +263,7 @@ def solve(structureObj, scheduleObj):
 
         if current_eval == 1:  # found a perfect solution. Program can end early
             print("Schedule: ", scheduleObj.shiftSchedule.tolist(),
-                  f"\nSolution evaluation: {scheduleObj.evaluation * 100}%")
+                  f"\nSolution evaluation: {current_eval * 100}%")
             # end timer
             end_time = time.perf_counter()
             elapsed_time = end_time - start_time
@@ -266,6 +277,6 @@ def solve(structureObj, scheduleObj):
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     print("Schedule: ", scheduleObj.shiftSchedule.tolist(),
-          f"\nSolution evaluation: {scheduleObj.evaluation * 100}%")
-    print("Imperfect solve found in", iterationCounter, "iterations and time", elapsed_time)
+          f"\nSolution evaluation: {evaluate(scheduleObj.shiftSchedule, scheduleObj, structureObj) * 100}%")
+    print("Imperfect solve called after", iterationCounter, "iterations and time", elapsed_time)
     return scheduleObj.shiftSchedule

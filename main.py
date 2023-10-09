@@ -3,7 +3,7 @@ from optimizer import solve
 
 
 def main():
-    filepath = 'Tests/test1.txt'
+    filepath = 'Tests/test4.txt'
     schedule, structures = loadTestData(filepath)
     printTestData(schedule, structures)
     print('Testing file', filepath)
